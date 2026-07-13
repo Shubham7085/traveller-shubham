@@ -8,7 +8,11 @@ interface Trip {
   id: string
   title: string
   location: string
+  state: string
   description: string
+  coverImage: string
+  duration: string
+  tags: string[]
 }
 
 export default function Home() {
