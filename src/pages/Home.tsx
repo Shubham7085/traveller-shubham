@@ -71,11 +71,32 @@ export default function Home() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 via-transparent to-blue-500/0 group-hover:from-cyan-500/10 group-hover:to-blue-500/10 transition-all duration-500" />
               <div className="relative">
-                <h2 className="text-xl font-bold text-cyan-300 mb-1">{trip.title}</h2>
+                {trip.coverImage && (
+                  <img
+                    src={trip.coverImage}
+                    alt={trip.title}
+                    className="w-full h-40 object-cover rounded-xl mb-4"
+                  />
+                )}
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-xl font-bold text-cyan-300">{trip.title}</h2>
+                  {trip.duration && <span className="text-xs text-slate-400">{trip.duration}</span>}
+                </div>
                 {trip.location && (
-                  <p className="text-xs text-slate-400 tracking-wide uppercase mb-3">📍 {trip.location}</p>
+                  <p className="text-xs text-slate-400 tracking-wide uppercase mb-3">
+                    📍 {trip.location}{trip.state && `, ${trip.state}`}
+                  </p>
                 )}
                 <p className="text-slate-300 text-sm leading-relaxed">{trip.description}</p>
+                {trip.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-4">
+                    {trip.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] uppercase tracking-wide bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-full px-2 py-0.5">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
