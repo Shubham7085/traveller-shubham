@@ -11,8 +11,10 @@ let tokenClient: any = null
 let accessToken: string | null = null
 let connectedEmail: string | null = null
 
-export function initGoogleDrive(onReady: () => void) {
+export function initGoogleDrive(onReady: () => void, onError?: (msg: string) => void) {
+  let attempts = 0
   const check = setInterval(() => {
+    attempts++
     if (window.google && window.google.accounts) {
       clearInterval(check)
       tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -21,6 +23,14 @@ export function initGoogleDrive(onReady: () => void) {
         callback: () => {},
       })
       onReady()
+    } else if (attempts > 40) {
+      // ~8 seconds passed, script never loaded
+      clearInterval(check)
+      if (onError) {
+        onError(
+          'Google ka script load nahi hua. Phone ka Private DNS (NextDNS/AdGuard) ya koi ad-blocker/VPN accounts.google.com ko block kar raha ho sakta hai.'
+        )
+      }
     }
   }, 200)
 }
