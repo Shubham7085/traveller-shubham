@@ -1,69 +1,62 @@
-declare global {
-  interface Window {
-    google: any
-  }
-}
-
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const SCOPES = 'https://www.googleapis.com/auth/drive.file'
+const TOKEN_KEY = 'gdrive_access_token'
+const EXPIRY_KEY = 'gdrive_token_expiry'
+const EMAIL_KEY = 'gdrive_email'
 
-let tokenClient: any = null
-let accessToken: string | null = null
-let connectedEmail: string | null = null
-
-export function initGoogleDrive(onReady: () => void, onError?: (msg: string) => void) {
-  let attempts = 0
-  const check = setInterval(() => {
-    attempts++
-    if (window.google && window.google.accounts) {
-      clearInterval(check)
-      tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: () => {},
-      })
-      onReady()
-    } else if (attempts > 40) {
-      // ~8 seconds passed, script never loaded
-      clearInterval(check)
-      if (onError) {
-        onError(
-          'Google ka script load nahi hua. Phone ka Private DNS (NextDNS/AdGuard) ya koi ad-blocker/VPN accounts.google.com ko block kar raha ho sakta hai.'
-        )
-      }
-    }
-  }, 200)
+export function beginDriveConnect() {
+  const redirectUri = window.location.origin + window.location.pathname
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true',
+    prompt: 'consent',
+  })
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
-export function connectDrive(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!tokenClient) return reject(new Error('Google script abhi load nahi hua, thoda wait karo'))
-    tokenClient.callback = async (resp: any) => {
-      if (resp.error) return reject(resp)
-      accessToken = resp.access_token
-      try {
-        const info = await getDriveStorageInfo()
-        connectedEmail = info.email
-      } catch {
-        connectedEmail = null
-      }
-      resolve(accessToken as string)
+export function captureTokenFromRedirect(): boolean {
+  if (!window.location.hash) return false
+  const params = new URLSearchParams(window.location.hash.substring(1))
+  const token = params.get('access_token')
+  const expiresIn = params.get('expires_in')
+  if (token) {
+    sessionStorage.setItem(TOKEN_KEY, token)
+    if (expiresIn) {
+      sessionStorage.setItem(EXPIRY_KEY, String(Date.now() + Number(expiresIn) * 1000))
     }
-    tokenClient.requestAccessToken({ prompt: 'consent' })
-  })
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return true
+  }
+  return false
+}
+
+function getToken(): string | null {
+  const token = sessionStorage.getItem(TOKEN_KEY)
+  const expiry = sessionStorage.getItem(EXPIRY_KEY)
+  if (!token) return null
+  if (expiry && Date.now() > Number(expiry)) {
+    sessionStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(EXPIRY_KEY)
+    return null
+  }
+  return token
 }
 
 export function isDriveConnected() {
-  return !!accessToken
+  return !!getToken()
 }
 
 export function getConnectedEmail() {
-  return connectedEmail
+  return sessionStorage.getItem(EMAIL_KEY)
 }
 
 export function disconnectDrive() {
-  accessToken = null
-  connectedEmail = null
+  sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(EXPIRY_KEY)
+  sessionStorage.removeItem(EMAIL_KEY)
 }
 
 export interface MediaItem {
@@ -73,7 +66,8 @@ export interface MediaItem {
 }
 
 export async function uploadFileToDrive(file: File): Promise<MediaItem> {
-  if (!accessToken) throw new Error('Pehle Drive connect karo')
+  const token = getToken()
+  if (!token) throw new Error('Pehle Drive connect karo')
 
   const metadata = { name: `${Date.now()}_${file.name}` }
   const form = new FormData()
@@ -84,7 +78,7 @@ export async function uploadFileToDrive(file: File): Promise<MediaItem> {
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
       body: form,
     }
   )
@@ -100,7 +94,7 @@ export async function uploadFileToDrive(file: File): Promise<MediaItem> {
   await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ role: 'reader', type: 'anyone' }),
@@ -114,14 +108,6 @@ export async function uploadFileToDrive(file: File): Promise<MediaItem> {
   return { url, fileId, type: isVideo ? 'video' : 'image' }
 }
 
-export async function deleteFileFromDrive(fileId: string): Promise<void> {
-  if (!accessToken) throw new Error('Pehle Drive connect karo')
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-}
-
 export interface DriveStorageInfo {
   email: string
   usedBytes: number
@@ -129,15 +115,17 @@ export interface DriveStorageInfo {
 }
 
 export async function getDriveStorageInfo(): Promise<DriveStorageInfo> {
-  if (!accessToken) throw new Error('Pehle Drive connect karo')
-  const res = await fetch(
-    'https://www.googleapis.com/drive/v3/about?fields=user,storageQuota',
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  )
+  const token = getToken()
+  if (!token) throw new Error('Pehle Drive connect karo')
+  const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user,storageQuota', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
   if (!res.ok) throw new Error('Storage info fetch failed')
   const data = await res.json()
+  const email = data.user?.emailAddress || 'Unknown'
+  sessionStorage.setItem(EMAIL_KEY, email)
   return {
-    email: data.user?.emailAddress || 'Unknown',
+    email,
     usedBytes: Number(data.storageQuota?.usage || 0),
     totalBytes: data.storageQuota?.limit ? Number(data.storageQuota.limit) : null,
   }
