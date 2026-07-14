@@ -20,10 +20,10 @@ import {
   captureTokenFromRedirect,
   isDriveConnected,
   uploadFileToDrive,
-  getDriveStorageInfo,
+  getConnectedAccounts,
+  getAggregateStorage,
+  removeAccount,
   formatBytes,
-  getConnectedEmail,
-  DriveStorageInfo,
 } from '../services/googleDrive'
 import { Trip } from '../types'
 
@@ -43,8 +43,7 @@ export default function Admin() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
-  const [driveConnected, setDriveConnected] = useState(false)
-  const [storageInfo, setStorageInfo] = useState<DriveStorageInfo | null>(null)
+  const [accountsVersion, setAccountsVersion] = useState(0)
   const [uploadingTripId, setUploadingTripId] = useState<string | null>(null)
 
   const navigate = useNavigate()
@@ -59,11 +58,9 @@ export default function Admin() {
   }, [navigate])
 
   useEffect(() => {
-    captureTokenFromRedirect()
-    if (isDriveConnected()) {
-      setDriveConnected(true)
-      refreshStorage()
-    }
+    captureTokenFromRedirect().then((got) => {
+      if (got) setAccountsVersion((v) => v + 1)
+    })
   }, [])
 
   const loadTrips = async () => {
@@ -84,14 +81,6 @@ export default function Admin() {
     setDuration('')
     setTags('')
     setCoverFile(null)
-  }
-
-  const refreshStorage = async () => {
-    if (!isDriveConnected()) return
-    try {
-      const info = await getDriveStorageInfo()
-      setStorageInfo(info)
-    } catch {}
   }
 
   const handleAddTrip = async (e: React.FormEvent) => {
@@ -129,7 +118,7 @@ export default function Admin() {
       resetForm()
       setMessage('Trip added ✅')
       loadTrips()
-      refreshStorage()
+      setAccountsVersion((v) => v + 1)
     } catch (err: any) {
       setMessage('Error: ' + err.message)
     }
@@ -162,12 +151,15 @@ export default function Admin() {
       if (newVideos.length) updates.videos = arrayUnion(...newVideos)
       await updateDoc(doc(db, 'trips', trip.id), updates)
       loadTrips()
-      refreshStorage()
+      setAccountsVersion((v) => v + 1)
     } catch (err: any) {
       alert('Upload me error: ' + err.message)
     }
     setUploadingTripId(null)
   }
+
+  const accounts = getConnectedAccounts()
+  const aggregate = getAggregateStorage()
 
   if (loading)
     return (
@@ -193,38 +185,68 @@ export default function Admin() {
         </div>
 
         <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/40 backdrop-blur-xl p-4 mb-8">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 mb-3">
             <div>
-              <p className="text-sm font-semibold text-cyan-300">Google Drive</p>
+              <p className="text-sm font-semibold text-cyan-300">
+                Google Drive · {accounts.length} account{accounts.length !== 1 ? 's' : ''} connected
+              </p>
               <p className="text-xs text-slate-400">
-                {driveConnected
-                  ? `Connected: ${getConnectedEmail() || '...'}`
-                  : 'Photos/videos upload karne ke liye connect karo'}
+                {accounts.length === 0
+                  ? 'Photos/videos upload karne ke liye connect karo'
+                  : 'Naya account add karne ke liye reconnect karo'}
               </p>
             </div>
             <button
               onClick={beginDriveConnect}
               className="text-sm bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-lg px-4 py-2 hover:bg-cyan-500/20 transition shrink-0"
             >
-              {driveConnected ? 'Reconnect' : 'Connect Drive'}
+              {accounts.length === 0 ? 'Connect Drive' : '+ Add Account'}
             </button>
           </div>
 
-          {storageInfo && (
-            <div className="mt-4 pt-4 border-t border-slate-800">
+          {accounts.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {accounts.map((a) => (
+                <div
+                  key={a.email}
+                  className="flex justify-between items-center text-xs bg-slate-800/50 rounded-lg px-3 py-2"
+                >
+                  <span className="text-slate-300 truncate">{a.email}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-slate-500">
+                      {formatBytes(a.usedBytes)}
+                      {a.totalBytes ? ` / ${formatBytes(a.totalBytes)}` : ''}
+                    </span>
+                    <button
+                      onClick={() => {
+                        removeAccount(a.email)
+                        setAccountsVersion((v) => v + 1)
+                      }}
+                      className="text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {aggregate.accountCount > 0 && (
+            <div className="pt-3 border-t border-slate-800">
               <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-                <span>Storage used</span>
+                <span>Total storage used</span>
                 <span>
-                  {formatBytes(storageInfo.usedBytes)}
-                  {storageInfo.totalBytes ? ` / ${formatBytes(storageInfo.totalBytes)}` : ''}
+                  {formatBytes(aggregate.usedBytes)}
+                  {aggregate.totalBytes ? ` / ${formatBytes(aggregate.totalBytes)}` : ''}
                 </span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
                   style={{
-                    width: storageInfo.totalBytes
-                      ? `${Math.min(100, (storageInfo.usedBytes / storageInfo.totalBytes) * 100)}%`
+                    width: aggregate.totalBytes
+                      ? `${Math.min(100, (aggregate.usedBytes / aggregate.totalBytes) * 100)}%`
                       : '5%',
                   }}
                 />
@@ -378,4 +400,4 @@ export default function Admin() {
       </div>
     </div>
   )
-  }
+        }
