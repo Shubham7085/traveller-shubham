@@ -44,6 +44,7 @@ export default function Admin() {
   const [message, setMessage] = useState('')
 
   const [driveReady, setDriveReady] = useState(false)
+  const [driveError, setDriveError] = useState('')
   const [driveConnected, setDriveConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [storageInfo, setStorageInfo] = useState<DriveStorageInfo | null>(null)
@@ -60,8 +61,17 @@ export default function Admin() {
     return unsub
   }, [navigate])
 
+  const startDriveInit = () => {
+    setDriveError('')
+    setDriveReady(false)
+    initGoogleDrive(
+      () => setDriveReady(true),
+      (msg) => setDriveError(msg)
+    )
+  }
+
   useEffect(() => {
-    initGoogleDrive(() => setDriveReady(true))
+    startDriveInit()
   }, [])
 
   const loadTrips = async () => {
@@ -204,11 +214,17 @@ export default function Admin() {
         </div>
 
         <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/40 backdrop-blur-xl p-4 mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-cyan-300">Google Drive</p>
               <p className="text-xs text-slate-400">
-                {driveConnected ? `Connected: ${getConnectedEmail() || '...'}` : 'Photos/videos upload karne ke liye connect karo'}
+                {driveConnected
+                  ? `Connected: ${getConnectedEmail() || '...'}`
+                  : driveError
+                  ? driveError
+                  : driveReady
+                  ? 'Photos/videos upload karne ke liye connect karo'
+                  : 'Google script load ho raha hai...'}
               </p>
             </div>
             <button
@@ -219,6 +235,15 @@ export default function Admin() {
               {connecting ? 'Connecting...' : driveConnected ? 'Reconnect' : 'Connect Drive'}
             </button>
           </div>
+
+          {driveError && (
+            <button
+              onClick={startDriveInit}
+              className="text-xs text-cyan-400 underline mt-2"
+            >
+              Dubara try karo
+            </button>
+          )}
 
           {storageInfo && (
             <div className="mt-4 pt-4 border-t border-slate-800">
@@ -388,4 +413,4 @@ export default function Admin() {
       </div>
     </div>
   )
-}
+  }
