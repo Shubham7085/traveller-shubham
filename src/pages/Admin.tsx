@@ -16,8 +16,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 import AuroraBackground from '../components/AuroraBackground'
 import {
-  initGoogleDrive,
-  connectDrive,
+  beginDriveConnect,
+  captureTokenFromRedirect,
   isDriveConnected,
   uploadFileToDrive,
   getDriveStorageInfo,
@@ -43,10 +43,7 @@ export default function Admin() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
-  const [driveReady, setDriveReady] = useState(false)
-  const [driveError, setDriveError] = useState('')
   const [driveConnected, setDriveConnected] = useState(false)
-  const [connecting, setConnecting] = useState(false)
   const [storageInfo, setStorageInfo] = useState<DriveStorageInfo | null>(null)
   const [uploadingTripId, setUploadingTripId] = useState<string | null>(null)
 
@@ -61,17 +58,12 @@ export default function Admin() {
     return unsub
   }, [navigate])
 
-  const startDriveInit = () => {
-    setDriveError('')
-    setDriveReady(false)
-    initGoogleDrive(
-      () => setDriveReady(true),
-      (msg) => setDriveError(msg)
-    )
-  }
-
   useEffect(() => {
-    startDriveInit()
+    captureTokenFromRedirect()
+    if (isDriveConnected()) {
+      setDriveConnected(true)
+      refreshStorage()
+    }
   }, [])
 
   const loadTrips = async () => {
@@ -92,19 +84,6 @@ export default function Admin() {
     setDuration('')
     setTags('')
     setCoverFile(null)
-  }
-
-  const handleConnectDrive = async () => {
-    setConnecting(true)
-    try {
-      await connectDrive()
-      setDriveConnected(true)
-      const info = await getDriveStorageInfo()
-      setStorageInfo(info)
-    } catch (err: any) {
-      alert('Drive connect nahi hua: ' + (err.message || JSON.stringify(err)))
-    }
-    setConnecting(false)
   }
 
   const refreshStorage = async () => {
@@ -220,30 +199,16 @@ export default function Admin() {
               <p className="text-xs text-slate-400">
                 {driveConnected
                   ? `Connected: ${getConnectedEmail() || '...'}`
-                  : driveError
-                  ? driveError
-                  : driveReady
-                  ? 'Photos/videos upload karne ke liye connect karo'
-                  : 'Google script load ho raha hai...'}
+                  : 'Photos/videos upload karne ke liye connect karo'}
               </p>
             </div>
             <button
-              onClick={handleConnectDrive}
-              disabled={!driveReady || connecting}
-              className="text-sm bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-lg px-4 py-2 hover:bg-cyan-500/20 transition disabled:opacity-50 shrink-0"
+              onClick={beginDriveConnect}
+              className="text-sm bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-lg px-4 py-2 hover:bg-cyan-500/20 transition shrink-0"
             >
-              {connecting ? 'Connecting...' : driveConnected ? 'Reconnect' : 'Connect Drive'}
+              {driveConnected ? 'Reconnect' : 'Connect Drive'}
             </button>
           </div>
-
-          {driveError && (
-            <button
-              onClick={startDriveInit}
-              className="text-xs text-cyan-400 underline mt-2"
-            >
-              Dubara try karo
-            </button>
-          )}
 
           {storageInfo && (
             <div className="mt-4 pt-4 border-t border-slate-800">
