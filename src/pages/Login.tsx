@@ -32,17 +32,18 @@ export default function Login() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={handleLogin}
-        className="bg-slate-900/50 border border-cyan-500/20 backdrop-blur-xl rounded-2xl p-6 w-full max-w-sm space-y-4"
+        className="bg-white/[0.03] border border-white/10 backdrop-blur-2xl rounded-3xl p-8 w-full max-w-sm space-y-4 shadow-2xl shadow-black/40"
       >
-        <h1 className="text-xl font-bold text-center bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">
-          Admin Login
-        </h1>
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-slate-950 font-bold text-lg mx-auto mb-2">
+          T
+        </div>
+        <h1 className="text-xl font-bold text-center text-white mb-1">Admin Login</h1>
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-slate-800/70 text-white rounded-xl px-4 py-2.5 outline-none border border-slate-700 focus:border-cyan-500 transition"
+          className="w-full bg-white/[0.05] text-white rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-amber-400/50 transition"
           required
         />
         <input
@@ -50,14 +51,14 @@ export default function Login() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full bg-slate-800/70 text-white rounded-xl px-4 py-2.5 outline-none border border-slate-700 focus:border-cyan-500 transition"
+          className="w-full bg-white/[0.05] text-white rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-amber-400/50 transition"
           required
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           disabled={loading}
           type="submit"
-          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-semibold rounded-xl py-2.5 transition disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-semibold rounded-xl py-2.5 transition disabled:opacity-50"
         >
           {loading ? 'Logging in...' : 'Login'}
         </button>
