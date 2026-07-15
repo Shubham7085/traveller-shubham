@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { db } from '../firebase/config'
@@ -7,14 +7,25 @@ import AuroraBackground from '../components/AuroraBackground'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import AnimatedCounter from '../components/AnimatedCounter'
+import SearchBar from '../components/SearchBar'
+import GallerySection from '../components/GallerySection'
 import { Trip } from '../types'
 
 const HERO_IMAGE =
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80'
 
+const FEATURES = [
+  { icon: '📸', title: 'Real Experiences', desc: 'Captured with heart' },
+  { icon: '🧭', title: 'Curated Journeys', desc: 'Handpicked destinations' },
+  { icon: '🎬', title: 'High Quality Media', desc: 'Photos & videos in 4K' },
+  { icon: '🌏', title: 'Always Exploring', desc: 'More to come...' },
+]
+
 export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [bookmarked, setBookmarked] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const load = async () => {
@@ -26,9 +37,29 @@ export default function Home() {
     load()
   }, [])
 
+  const filteredTrips = useMemo(() => {
+    if (!search.trim()) return trips
+    const s = search.toLowerCase()
+    return trips.filter(
+      (t) =>
+        t.title.toLowerCase().includes(s) ||
+        t.location?.toLowerCase().includes(s) ||
+        t.state?.toLowerCase().includes(s) ||
+        t.tags?.some((tag) => tag.toLowerCase().includes(s))
+    )
+  }, [search, trips])
+
   const totalPhotos = trips.reduce((sum, t) => sum + (t.photos?.length || 0), 0)
   const totalVideos = trips.reduce((sum, t) => sum + (t.videos?.length || 0), 0)
   const uniqueStates = new Set(trips.map((t) => t.state).filter(Boolean)).size
+
+  const toggleBookmark = (id: string) => {
+    setBookmarked((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   return (
     <div className="min-h-screen text-white relative overflow-x-hidden">
@@ -38,11 +69,7 @@ export default function Home() {
       {/* HERO */}
       <section className="relative min-h-[92vh] flex items-end sm:items-center pb-16 sm:pb-0">
         <div className="absolute inset-0 -z-10">
-          <img
-            src={HERO_IMAGE}
-            alt="hero"
-            className="w-full h-full object-cover opacity-40"
-          />
+          <img src={HERO_IMAGE} alt="hero" className="w-full h-full object-cover opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-[#05070f]/70 to-[#05070f]/30" />
         </div>
 
@@ -71,15 +98,19 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-slate-300 text-lg max-w-md mb-10"
+            className="text-slate-300 text-lg max-w-md mb-8"
           >
-            Every place has a story. Let's create unforgettable memories, one trip at a time.
+            Every place has a story. Let's live it — one journey at a time.
           </motion.p>
+
+          <div className="mb-8">
+            <SearchBar value={search} onChange={setSearch} />
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            transition={{ duration: 0.7, delay: 0.4 }}
             className="flex flex-wrap gap-4"
           >
             <a
@@ -89,10 +120,10 @@ export default function Home() {
               Explore Trips
             </a>
             <a
-              href="#about"
+              href="#gallery"
               className="border border-white/20 hover:border-amber-400/50 text-white px-7 py-3.5 rounded-full transition backdrop-blur-sm"
             >
-              About Me
+              Watch Journey
             </a>
           </motion.div>
         </div>
@@ -121,7 +152,8 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 text-center hover:border-amber-400/30 transition"
+              whileHover={{ y: -3 }}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 text-center hover:border-amber-400/30 hover:shadow-lg hover:shadow-amber-400/5 transition"
             >
               <p className="text-3xl font-bold text-amber-400">
                 <AnimatedCounter target={stat.value} suffix="+" />
@@ -133,7 +165,7 @@ export default function Home() {
       </section>
 
       {/* FEATURED TRIPS */}
-      <section id="trips" className="max-w-5xl mx-auto px-5 mb-28 scroll-mt-24">
+      <section id="trips" className="max-w-5xl mx-auto px-5 mb-20 scroll-mt-24">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -142,20 +174,22 @@ export default function Home() {
         >
           <div>
             <p className="text-amber-400 text-xs tracking-[0.3em] font-semibold mb-2">FEATURED</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">Latest Journeys</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold">
+              {search.trim() ? `Results for "${search}"` : 'Latest Journeys'}
+            </h2>
           </div>
         </motion.div>
 
         {loading && <p className="text-slate-500">Loading trips...</p>}
 
-        {!loading && trips.length === 0 && (
+        {!loading && filteredTrips.length === 0 && (
           <div className="text-center text-slate-500 border border-white/10 rounded-3xl py-20 bg-white/[0.02] backdrop-blur">
-            Abhi koi trip add nahi hui.
+            {search.trim() ? 'Koi trip nahi mila.' : 'Abhi koi trip add nahi hui.'}
           </div>
         )}
 
         <div className="grid sm:grid-cols-2 gap-6">
-          {trips.map((trip, i) => (
+          {filteredTrips.map((trip, i) => (
             <motion.div
               key={trip.id}
               initial={{ opacity: 0, y: 30 }}
@@ -163,7 +197,18 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: i * 0.08 }}
               whileHover={{ y: -6 }}
+              className="relative"
             >
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  toggleBookmark(trip.id)
+                }}
+                className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-black/40 backdrop-blur border border-white/20 flex items-center justify-center text-sm hover:bg-black/60 transition"
+              >
+                {bookmarked.has(trip.id) ? '❤️' : '🤍'}
+              </button>
+
               <Link
                 to={`/trip/${trip.id}`}
                 className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-xl block"
@@ -220,6 +265,47 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* QUOTE BANNER */}
+      <section className="max-w-5xl mx-auto px-5 mb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="relative rounded-3xl overflow-hidden border border-white/10 p-10 sm:p-14 text-center"
+        >
+          <div className="absolute inset-0 -z-10">
+            <img
+              src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1400&q=80"
+              className="w-full h-full object-cover opacity-30"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+          </div>
+          <p className="text-2xl sm:text-3xl font-semibold leading-snug max-w-2xl mx-auto">
+            "Travel is not just about seeing new places, it's about feeling new emotions."
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.08 }}
+              className="text-center p-4"
+            >
+              <p className="text-2xl mb-2">{f.icon}</p>
+              <p className="text-sm font-semibold">{f.title}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* GALLERY */}
+      <GallerySection trips={trips} />
 
       {/* ABOUT */}
       <section id="about" className="max-w-4xl mx-auto px-5 mb-28 scroll-mt-24">
