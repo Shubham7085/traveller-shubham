@@ -117,14 +117,15 @@ export async function uploadFileToDrive(file: File): Promise<MediaItem> {
   const uploaded = await uploadRes.json()
   const fileId = uploaded.id
 
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+  // Fire-and-forget: don't block the next upload waiting for this to finish
+  fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${account.token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-  })
+  }).catch(() => {})
 
   const accounts = getAccounts().map((a) =>
     a.email === account.email ? { ...a, usedBytes: a.usedBytes + file.size } : a
@@ -137,6 +138,31 @@ export async function uploadFileToDrive(file: File): Promise<MediaItem> {
     : `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
 
   return { url, fileId, type: isVideo ? 'video' : 'image' }
+}
+
+// Uploads multiple files with limited concurrency (parallel batches) instead of one-by-one.
+export async function uploadFilesToDrive(
+  files: File[],
+  concurrency = 3,
+  onProgress?: (done: number, total: number) => void
+): Promise<MediaItem[]> {
+  const results: MediaItem[] = new Array(files.length)
+  let nextIndex = 0
+  let completed = 0
+
+  async function worker() {
+    while (nextIndex < files.length) {
+      const current = nextIndex
+      nextIndex++
+      results[current] = await uploadFileToDrive(files[current])
+      completed++
+      onProgress?.(completed, files.length)
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, files.length) }, () => worker())
+  await Promise.all(workers)
+  return results
 }
 
 export function getAggregateStorage() {
