@@ -22,6 +22,7 @@ import {
   captureTokenFromRedirect,
   isDriveConnected,
   uploadFileToDrive,
+  uploadFilesToDrive,
   getConnectedAccounts,
   getAggregateStorage,
   removeAccount,
@@ -48,6 +49,9 @@ export default function Admin() {
 
   const [accountsVersion, setAccountsVersion] = useState(0)
   const [uploadingTripId, setUploadingTripId] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(
+    null
+  )
   const [activeTab, setActiveTab] = useState<'overview' | 'add' | 'trips' | 'drive' | 'settings'>(
     'overview'
   )
@@ -185,14 +189,13 @@ export default function Admin() {
       return
     }
     setUploadingTripId(trip.id)
+    setUploadProgress({ done: 0, total: files.length })
     try {
-      const newPhotos: any[] = []
-      const newVideos: any[] = []
-      for (let i = 0; i < files.length; i++) {
-        const uploaded = await uploadFileToDrive(files[i])
-        if (uploaded.type === 'video') newVideos.push(uploaded)
-        else newPhotos.push(uploaded)
-      }
+      const uploaded = await uploadFilesToDrive(Array.from(files), 3, (done, total) =>
+        setUploadProgress({ done, total })
+      )
+      const newPhotos = uploaded.filter((u) => u.type === 'image')
+      const newVideos = uploaded.filter((u) => u.type === 'video')
       const updates: any = {}
       if (newPhotos.length) updates.photos = arrayUnion(...newPhotos)
       if (newVideos.length) updates.videos = arrayUnion(...newVideos)
@@ -203,6 +206,7 @@ export default function Admin() {
       alert('Upload me error: ' + err.message)
     }
     setUploadingTripId(null)
+    setUploadProgress(null)
   }
 
   const handleHeroSave = async () => {
@@ -682,7 +686,11 @@ export default function Admin() {
                       )}
 
                       <label className="text-xs inline-block bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 cursor-pointer hover:border-cyan-400/50 transition">
-                        {uploadingTripId === trip.id ? 'Uploading...' : '+ Add Photos / Videos'}
+                        {uploadingTripId === trip.id
+                          ? uploadProgress
+                            ? `Uploading ${uploadProgress.done}/${uploadProgress.total}...`
+                            : 'Uploading...'
+                          : '+ Add Photos / Videos'}
                         <input
                           type="file"
                           accept="image/*,video/*"
