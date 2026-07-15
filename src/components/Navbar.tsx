@@ -57,11 +57,11 @@ export default function Navbar() {
         }`}
       >
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-slate-950 font-bold text-sm">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 via-purple-500 to-amber-400 flex items-center justify-center text-slate-950 font-bold text-sm">
             T
           </div>
           <span className="font-bold tracking-wide text-white text-sm sm:text-base whitespace-nowrap">
-            Travel<span className="text-amber-400"> With Shubham</span>
+            Travel<span className="bg-gradient-to-r from-cyan-300 via-purple-300 to-amber-300 bg-clip-text text-transparent"> With Shubham</span>
           </span>
         </Link>
 
