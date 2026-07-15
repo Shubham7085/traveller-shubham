@@ -76,10 +76,14 @@ export default function TripDetail() {
 
         {trip.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-6">
-            {trip.tags.map((tag) => (
+            {trip.tags.map((tag, ti) => (
               <span
                 key={tag}
-                className="text-[10px] uppercase tracking-wide bg-amber-400/10 text-amber-300 border border-amber-400/20 rounded-full px-2.5 py-1"
+                className={`text-[10px] uppercase tracking-wide rounded-full px-2.5 py-1 border ${
+                  ti % 2 === 0
+                    ? 'bg-cyan-400/10 text-cyan-300 border-cyan-400/20'
+                    : 'bg-purple-400/10 text-purple-300 border-purple-400/20'
+                }`}
               >
                 {tag}
               </span>

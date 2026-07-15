@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { db } from '../firebase/config'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
+import { collection, getDocs, orderBy, query, doc, getDoc } from 'firebase/firestore'
 import AuroraBackground from '../components/AuroraBackground'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -11,7 +11,7 @@ import SearchBar from '../components/SearchBar'
 import GallerySection from '../components/GallerySection'
 import { Trip } from '../types'
 
-const HERO_IMAGE =
+const DEFAULT_HERO_IMAGE =
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80'
 
 const FEATURES = [
@@ -21,11 +21,14 @@ const FEATURES = [
   { icon: '🌏', title: 'Always Exploring', desc: 'More to come...' },
 ]
 
+const STAT_COLORS = ['text-cyan-400', 'text-purple-400', 'text-amber-400', 'text-pink-400']
+
 export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [bookmarked, setBookmarked] = useState<Set<string>>(new Set())
+  const [heroImage, setHeroImage] = useState(DEFAULT_HERO_IMAGE)
 
   useEffect(() => {
     const load = async () => {
@@ -33,6 +36,11 @@ export default function Home() {
       const snap = await getDocs(q)
       setTrips(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Trip)))
       setLoading(false)
+
+      const settingsSnap = await getDoc(doc(db, 'settings', 'site'))
+      if (settingsSnap.exists() && settingsSnap.data().heroImage) {
+        setHeroImage(settingsSnap.data().heroImage)
+      }
     }
     load()
   }, [])
@@ -69,8 +77,9 @@ export default function Home() {
       {/* HERO */}
       <section className="relative min-h-[92vh] flex items-end sm:items-center pb-16 sm:pb-0">
         <div className="absolute inset-0 -z-10">
-          <img src={HERO_IMAGE} alt="hero" className="w-full h-full object-cover opacity-40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-[#05070f]/70 to-[#05070f]/30" />
+          <img src={heroImage} alt="hero" className="w-full h-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050810] via-[#050810]/70 to-[#050810]/30" />
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/10" />
         </div>
 
         <div className="max-w-5xl mx-auto px-5 w-full">
@@ -78,7 +87,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-amber-400 tracking-[0.35em] text-xs font-semibold mb-4"
+            className="bg-gradient-to-r from-cyan-300 to-purple-300 bg-clip-text text-transparent tracking-[0.35em] text-xs font-semibold mb-4"
           >
             INDIA PORTFOLIO
           </motion.p>
@@ -90,7 +99,7 @@ export default function Home() {
           >
             Explore The World
             <br />
-            <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-cyan-300 via-purple-300 to-amber-400 bg-clip-text text-transparent">
               With Shubham
             </span>
           </motion.h1>
@@ -115,13 +124,13 @@ export default function Home() {
           >
             <a
               href="#trips"
-              className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-semibold px-7 py-3.5 rounded-full transition shadow-lg shadow-amber-500/20"
+              className="bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 hover:opacity-90 text-slate-950 font-semibold px-7 py-3.5 rounded-full transition shadow-lg shadow-purple-500/20"
             >
               Explore Trips
             </a>
             <a
               href="#gallery"
-              className="border border-white/20 hover:border-amber-400/50 text-white px-7 py-3.5 rounded-full transition backdrop-blur-sm"
+              className="border border-white/20 hover:border-cyan-400/50 text-white px-7 py-3.5 rounded-full transition backdrop-blur-sm"
             >
               Watch Journey
             </a>
@@ -153,9 +162,9 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.08 }}
               whileHover={{ y: -3 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 text-center hover:border-amber-400/30 hover:shadow-lg hover:shadow-amber-400/5 transition"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 text-center hover:border-cyan-400/30 hover:shadow-lg hover:shadow-purple-400/5 transition"
             >
-              <p className="text-3xl font-bold text-amber-400">
+              <p className={`text-3xl font-bold ${STAT_COLORS[i % STAT_COLORS.length]}`}>
                 <AnimatedCounter target={stat.value} suffix="+" />
               </p>
               <p className="text-xs text-slate-400 uppercase tracking-wide mt-1">{stat.label}</p>
@@ -173,7 +182,9 @@ export default function Home() {
           className="flex items-end justify-between mb-8"
         >
           <div>
-            <p className="text-amber-400 text-xs tracking-[0.3em] font-semibold mb-2">FEATURED</p>
+            <p className="bg-gradient-to-r from-cyan-300 to-purple-300 bg-clip-text text-transparent text-xs tracking-[0.3em] font-semibold mb-2">
+              FEATURED
+            </p>
             <h2 className="text-3xl sm:text-4xl font-bold">
               {search.trim() ? `Results for "${search}"` : 'Latest Journeys'}
             </h2>
@@ -211,7 +222,7 @@ export default function Home() {
 
               <Link
                 to={`/trip/${trip.id}`}
-                className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-xl block"
+                className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-xl block hover:border-cyan-400/30 transition"
               >
                 <div className="relative h-56 overflow-hidden">
                   {trip.coverImage && (
@@ -244,10 +255,14 @@ export default function Home() {
                   </p>
                   {trip.tags?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-4">
-                      {trip.tags.map((tag) => (
+                      {trip.tags.map((tag, ti) => (
                         <span
                           key={tag}
-                          className="text-[10px] uppercase tracking-wide bg-amber-400/10 text-amber-300 border border-amber-400/20 rounded-full px-2.5 py-1"
+                          className={`text-[10px] uppercase tracking-wide rounded-full px-2.5 py-1 border ${
+                            ti % 2 === 0
+                              ? 'bg-cyan-400/10 text-cyan-300 border-cyan-400/20'
+                              : 'bg-purple-400/10 text-purple-300 border-purple-400/20'
+                          }`}
                         >
                           {tag}
                         </span>
@@ -280,6 +295,7 @@ export default function Home() {
               className="w-full h-full object-cover opacity-30"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10" />
           </div>
           <p className="text-2xl sm:text-3xl font-semibold leading-snug max-w-2xl mx-auto">
             "Travel is not just about seeing new places, it's about feeling new emotions."
@@ -315,11 +331,13 @@ export default function Home() {
           viewport={{ once: true }}
           className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-8 sm:p-12 flex flex-col sm:flex-row items-center gap-8"
         >
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center text-slate-950 font-bold text-3xl shrink-0">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-400 via-purple-500 to-amber-400 flex items-center justify-center text-slate-950 font-bold text-3xl shrink-0">
             S
           </div>
           <div className="text-center sm:text-left">
-            <p className="text-amber-400 text-xs tracking-[0.3em] font-semibold mb-2">ABOUT ME</p>
+            <p className="bg-gradient-to-r from-cyan-300 to-purple-300 bg-clip-text text-transparent text-xs tracking-[0.3em] font-semibold mb-2">
+              ABOUT ME
+            </p>
             <h3 className="text-2xl font-bold mb-3">Hi, I'm Shubham</h3>
             <p className="text-slate-300 leading-relaxed">
               A traveler, dreamer and explorer at heart. I love capturing moments, discovering new
